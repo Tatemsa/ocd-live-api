@@ -41,7 +41,7 @@ class GlobalExceptionHandlerTest {
     @DisplayName("handleBaseApiException() - Devrait formater ResourceNotFoundException avec statut 404")
     void shouldHandleResourceNotFoundException() {
         ResourceNotFoundException ex = new ResourceNotFoundException("Pack", "id", 42L);
-        given(translator.toLocaleWithDefault(anyString(), anyString(), any()))
+        given(translator.toLocaleWithDefault(anyString(), anyString(), any(Object[].class)))
                 .willReturn("Pack non trouvé(e) avec id : '42'");
 
         ResponseEntity<ErrorResponse> response = exceptionHandler.handleBaseApiException(ex, request);
@@ -56,7 +56,7 @@ class GlobalExceptionHandlerTest {
     @DisplayName("handleBaseApiException() - Devrait formater ResourceAlreadyExistsException avec statut 409")
     void shouldHandleResourceAlreadyExistsException() {
         ResourceAlreadyExistsException ex = new ResourceAlreadyExistsException("Pack", "nom", "Pack Live");
-        given(translator.toLocaleWithDefault(anyString(), anyString(), any()))
+        given(translator.toLocaleWithDefault(anyString(), anyString(), any(Object[].class)))
                 .willReturn("Un(e) Pack avec nom 'Pack Live' existe déjà.");
 
         ResponseEntity<ErrorResponse> response = exceptionHandler.handleBaseApiException(ex, request);
@@ -73,7 +73,7 @@ class GlobalExceptionHandlerTest {
 
         ResponseEntity<ErrorResponse> response = exceptionHandler.handleBaseApiException(ex, request);
 
-        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.UNPROCESSABLE_ENTITY);
+        assertThat(response.getStatusCode().value()).isEqualTo(422);
         assertThat(response.getBody()).isNotNull();
         assertThat(response.getBody().getErrorCode()).isEqualTo("BUSINESS_RULE_VIOLATION");
         assertThat(response.getBody().getMessage()).isEqualTo("Règle métier violée");
