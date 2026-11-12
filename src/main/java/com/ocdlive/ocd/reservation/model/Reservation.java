@@ -24,9 +24,13 @@ public class Reservation {
     @Column(name = "full_name_or_company", nullable = false)
     private String fullNameOrCompany;
 
-    // Date et heure souhaitées pour le live / rendez-vous
+    // Date et heure souhaitées pour le début du live / rendez-vous
     @Column(name = "appointment_date_time", nullable = false)
     private LocalDateTime appointmentDateTime;
+
+    // Date et heure de fin calculée selon la durée du pack réservé
+    @Column(name = "end_date_time")
+    private LocalDateTime endDateTime;
 
     @Column(name = "phone_number", nullable = false, length = 50)
     private String phoneNumber;
@@ -34,12 +38,12 @@ public class Reservation {
     @Column(nullable = false)
     private String email;
 
-    // Réservation en ligne ou en locale
+    // Réservation en ligne ou en locale (présentiel au Togo)
     @Enumerated(EnumType.STRING)
     @Column(name = "location_type", nullable = false, length = 20)
     private ReservationLocationType locationType;
 
-    // Secteur d'activité (E-commerce, Musique, Corporate, etc.)
+    // Secteur d'activité / catégorie de business (E-commerce, Musique, Corporate, etc.)
     @Column(name = "activity_sector", nullable = false, length = 150)
     private String activitySector;
 
@@ -56,13 +60,13 @@ public class Reservation {
     @JoinColumn(name = "pack_id", nullable = false)
     private Pack pack;
 
-    // Statut de la réservation
+    // Statut de la réservation (confirmée après paiement ou via abonnement actif)
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 30)
     @Builder.Default
     private ReservationStatus status = ReservationStatus.PENDING;
 
-    // Client connecté (optionnel si la réservation est faite en tant qu'invité)
+    // Client connecté (optionnel si la réservation unitaire est faite en tant qu'invité)
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "client_user_id")
     private User client;
@@ -84,4 +88,3 @@ public class Reservation {
         this.updatedAt = LocalDateTime.now();
     }
 }
-

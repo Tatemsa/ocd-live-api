@@ -35,7 +35,20 @@ public class Pack {
     @Column(columnDefinition = "TEXT")
     private String description;
 
-    @ManyToMany(fetch = FetchType.EAGER)
+    @Enumerated(EnumType.STRING)
+    @Column(name = "billing_type", nullable = false, length = 30)
+    @Builder.Default
+    private PackBillingType billingType = PackBillingType.ONE_TIME;
+
+    // Pays cible si ce pack est dédié aux créneaux d'un pays particulier (ex: Cameroun)
+    @Column(name = "target_country", length = 100)
+    private String targetCountry;
+
+    // Nombre de lives inclus par mois (pertinent pour un pack MONTHLY_SUBSCRIPTION)
+    @Column(name = "monthly_live_quota")
+    private Integer monthlyLiveQuota;
+
+    @ManyToMany(fetch = FetchType.LAZY)
     @JoinTable(
             name = "pack_equipments",
             joinColumns = @JoinColumn(name = "pack_id"),
@@ -66,6 +79,9 @@ public class Pack {
     protected void onCreate() {
         this.createdAt = LocalDateTime.now();
         this.updatedAt = LocalDateTime.now();
+        if (this.billingType == null) {
+            this.billingType = PackBillingType.ONE_TIME;
+        }
     }
 
     @PreUpdate
