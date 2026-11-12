@@ -2,6 +2,8 @@ package com.ocdlive.ocd.auth.service;
 
 import com.ocdlive.ocd.auth.dto.AuthResponse;
 import com.ocdlive.ocd.auth.dto.LoginRequest;
+import com.ocdlive.ocd.auth.dto.RegisterRequest;
+import com.ocdlive.ocd.exception.ResourceAlreadyExistsException;
 import com.ocdlive.ocd.security.jwt.JwtService;
 import com.ocdlive.ocd.user.model.Role;
 import com.ocdlive.ocd.user.model.User;
@@ -19,6 +21,7 @@ import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.test.util.ReflectionTestUtils;
 
 import java.util.Map;
@@ -45,6 +48,9 @@ class AuthServiceTest {
     @Mock
     private AuthenticationManager authenticationManager;
 
+    @Mock
+    private PasswordEncoder passwordEncoder;
+
     @InjectMocks
     private AuthService authService;
 
@@ -56,6 +62,58 @@ class AuthServiceTest {
     }
 
     @Nested
+    @DisplayName("register()")
+    class RegisterTests {
+
+        @Test
+        @DisplayName("Devrait inscrire un nouvel utilisateur et retourner un AuthResponse avec JWT")
+        @SuppressWarnings("unchecked")
+        void shouldRegisterNewUserAndReturnAuthResponse() {
+            RegisterRequest request = RegisterRequest.builder()
+                    .firstName("Kofi")
+                    .lastName("Mensah")
+                    .email("kofi@entreprise.tg")
+                    .password("secret123")
+                    .build();
+
+            given(userRepository.existsByEmail("kofi@entreprise.tg")).willReturn(false);
+            given(passwordEncoder.encode("secret123")).willReturn("encodedSecret");
+            given(userRepository.save(any(User.class))).willAnswer(inv -> {
+                User u = inv.getArgument(0);
+                u.setId(10L);
+                return u;
+            });
+            given(jwtService.generateToken(any(Map.class), any(User.class))).willReturn("registered.jwt.token");
+
+            AuthResponse response = authService.register(request);
+
+            assertThat(response).isNotNull();
+            assertThat(response.getAccessToken()).isEqualTo("registered.jwt.token");
+            assertThat(response.getUserId()).isEqualTo(10L);
+            assertThat(response.getEmail()).isEqualTo("kofi@entreprise.tg");
+            assertThat(response.getRole()).isEqualTo(Role.ROLE_USER);
+        }
+
+        @Test
+        @DisplayName("Devrait lever ResourceAlreadyExistsException si l'email est déjà utilisé")
+        void shouldThrowExceptionWhenRegisterEmailAlreadyExists() {
+            RegisterRequest request = RegisterRequest.builder()
+                    .firstName("Kofi")
+                    .lastName("Mensah")
+                    .email("existing@entreprise.tg")
+                    .password("secret123")
+                    .build();
+
+            given(userRepository.existsByEmail("existing@entreprise.tg")).willReturn(true);
+
+            assertThatThrownBy(() -> authService.register(request))
+                    .isInstanceOf(ResourceAlreadyExistsException.class);
+
+            verify(userRepository, never()).save(any());
+        }
+    }
+
+    @Nested
     @DisplayName("login()")
     class LoginTests {
 
@@ -63,7 +121,6 @@ class AuthServiceTest {
         @DisplayName("Devrait authentifier l'utilisateur actif et retourner un AuthResponse avec token JWT")
         @SuppressWarnings("unchecked")
         void shouldAuthenticateActiveUserAndReturnAuthResponse() {
-            // Arrange
             LoginRequest request = LoginRequest.builder()
                     .email("admin@ocdlive.com")
                     .password("admin123")
@@ -82,10 +139,8 @@ class AuthServiceTest {
             given(userRepository.findByEmail("admin@ocdlive.com")).willReturn(Optional.of(user));
             given(jwtService.generateToken(any(Map.class), eq(user))).willReturn("mocked.jwt.token");
 
-            // Act
             AuthResponse response = authService.login(request);
 
-            // Assert
             assertThat(response).isNotNull();
             assertThat(response.getAccessToken()).isEqualTo("mocked.jwt.token");
             assertThat(response.getTokenType()).isEqualTo("Bearer");
@@ -110,7 +165,6 @@ class AuthServiceTest {
         @Test
         @DisplayName("Devrait lever BadCredentialsException si l'AuthenticationManager échoue")
         void shouldThrowBadCredentialsExceptionWhenAuthenticationManagerFails() {
-            // Arrange
             LoginRequest request = LoginRequest.builder()
                     .email("admin@ocdlive.com")
                     .password("wrongPassword")
@@ -119,7 +173,6 @@ class AuthServiceTest {
             given(authenticationManager.authenticate(any(UsernamePasswordAuthenticationToken.class)))
                     .willThrow(new BadCredentialsException("Bad credentials"));
 
-            // Act & Assert
             assertThatThrownBy(() -> authService.login(request))
                     .isInstanceOf(BadCredentialsException.class);
 
@@ -130,7 +183,6 @@ class AuthServiceTest {
         @Test
         @DisplayName("Devrait lever UsernameNotFoundException si l'utilisateur n'existe pas en base")
         void shouldThrowUsernameNotFoundExceptionWhenUserNotFound() {
-            // Arrange
             LoginRequest request = LoginRequest.builder()
                     .email("unknown@ocdlive.com")
                     .password("password")
@@ -138,7 +190,6 @@ class AuthServiceTest {
 
             given(userRepository.findByEmail("unknown@ocdlive.com")).willReturn(Optional.empty());
 
-            // Act & Assert
             assertThatThrownBy(() -> authService.login(request))
                     .isInstanceOf(UsernameNotFoundException.class)
                     .hasMessageContaining("unknown@ocdlive.com");
@@ -149,7 +200,6 @@ class AuthServiceTest {
         @Test
         @DisplayName("Devrait lever BadCredentialsException si le compte utilisateur est désactivé")
         void shouldThrowBadCredentialsExceptionWhenUserIsDisabled() {
-            // Arrange
             LoginRequest request = LoginRequest.builder()
                     .email("disabled@ocdlive.com")
                     .password("password")
@@ -166,7 +216,6 @@ class AuthServiceTest {
 
             given(userRepository.findByEmail("disabled@ocdlive.com")).willReturn(Optional.of(disabledUser));
 
-            // Act & Assert
             assertThatThrownBy(() -> authService.login(request))
                     .isInstanceOf(BadCredentialsException.class)
                     .hasMessageContaining("désactivé");
@@ -175,4 +224,3 @@ class AuthServiceTest {
         }
     }
 }
-

@@ -30,6 +30,18 @@ public class PackController {
         return ResponseEntity.ok(packService.getActivePacks());
     }
 
+    @GetMapping("/subscriptions")
+    @Operation(summary = "Lister les packs à abonnement mensuel", description = "Retourne les packs particuliers nécessitant un abonnement mensuel")
+    public ResponseEntity<List<PackResponse>> getSubscriptionPacks() {
+        return ResponseEntity.ok(packService.getSubscriptionPacks());
+    }
+
+    @GetMapping("/country/{country}")
+    @Operation(summary = "Lister les packs dédiés à un pays", description = "Retourne les packs actifs ciblant un pays spécifique (ex: Cameroun)")
+    public ResponseEntity<List<PackResponse>> getPacksByCountry(@PathVariable String country) {
+        return ResponseEntity.ok(packService.getPacksByCountry(country));
+    }
+
     @GetMapping("/{id}")
     @Operation(summary = "Consulter les détails d'un pack disponible")
     public ResponseEntity<PackResponse> getPackById(@PathVariable Long id) {

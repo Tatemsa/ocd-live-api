@@ -1,7 +1,7 @@
 package com.ocdlive.ocd.pack.dto;
 
 import com.ocdlive.ocd.equipment.dto.EquipmentResponse;
-import com.ocdlive.ocd.pack.model.Pack;
+import com.ocdlive.ocd.pack.model.PackBillingType;
 import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -10,7 +10,6 @@ import lombok.NoArgsConstructor;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
-import java.util.Collections;
 import java.util.List;
 
 @Data
@@ -32,8 +31,17 @@ public class PackResponse {
     @Schema(description = "Durée du rendez-vous en minutes", example = "90")
     private Integer durationMinutes;
 
-    @Schema(description = "Description du pack")
+    @Schema(description = "Description du pack et avantages")
     private String description;
+
+    @Schema(description = "Type de facturation (ONE_TIME ou MONTHLY_SUBSCRIPTION)", example = "ONE_TIME")
+    private PackBillingType billingType;
+
+    @Schema(description = "Pays cible dédié (si applicable)", example = "Cameroun")
+    private String targetCountry;
+
+    @Schema(description = "Nombre de lives inclus par mois (si abonnement mensuel)", example = "4")
+    private Integer monthlyLiveQuota;
 
     @Schema(description = "Liste détaillée des équipements inclus")
     private List<EquipmentResponse> equipments;
