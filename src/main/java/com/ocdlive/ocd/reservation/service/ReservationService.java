@@ -2,6 +2,7 @@ package com.ocdlive.ocd.reservation.service;
 
 import com.ocdlive.ocd.exception.BusinessRuleException;
 import com.ocdlive.ocd.exception.ResourceNotFoundException;
+import com.ocdlive.ocd.notification.service.EmailNotificationService;
 import com.ocdlive.ocd.pack.model.Pack;
 import com.ocdlive.ocd.pack.model.PackBillingType;
 import com.ocdlive.ocd.pack.repository.PackRepository;
@@ -38,6 +39,7 @@ public class ReservationService {
     private final ReservationMapper reservationMapper;
     private final CountryTimeSlotRepository countryTimeSlotRepository;
     private final SubscriptionRepository subscriptionRepository;
+    private final EmailNotificationService emailNotificationService;
 
     @Transactional
     public ReservationResponse createReservation(ReservationRequest request, User client) {
@@ -92,6 +94,9 @@ public class ReservationService {
         reservation.setClient(client);
 
         Reservation saved = reservationRepository.save(reservation);
+        if (initialStatus == ReservationStatus.CONFIRMED && emailNotificationService != null) {
+            emailNotificationService.sendReservationPaymentConfirmationEmails(null, saved);
+        }
         return reservationMapper.toResponse(saved);
     }
 

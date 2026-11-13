@@ -63,6 +63,9 @@ class ReservationServiceTest {
     @Mock
     private SubscriptionRepository subscriptionRepository;
 
+    @Mock
+    private com.ocdlive.ocd.notification.service.EmailNotificationService emailNotificationService;
+
     @InjectMocks
     private ReservationService reservationService;
 
