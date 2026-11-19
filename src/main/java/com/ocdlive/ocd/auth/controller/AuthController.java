@@ -2,6 +2,7 @@ package com.ocdlive.ocd.auth.controller;
 
 import com.ocdlive.ocd.auth.dto.AuthResponse;
 import com.ocdlive.ocd.auth.dto.LoginRequest;
+import com.ocdlive.ocd.auth.dto.RefreshTokenRequest;
 import com.ocdlive.ocd.auth.dto.RegisterRequest;
 import com.ocdlive.ocd.auth.service.AuthService;
 import io.swagger.v3.oas.annotations.Operation;
@@ -26,9 +27,9 @@ public class AuthController {
     private final AuthService authService;
 
     @PostMapping("/register")
-    @Operation(summary = "Inscription d'un nouvel utilisateur", description = "Crée un compte client et retourne un token JWT Bearer")
+    @Operation(summary = "Inscription d'un nouvel utilisateur", description = "Crée un compte client et retourne un access token et un refresh token JWT")
     @ApiResponses(value = {
-            @ApiResponse(responseCode = "201", description = "Compte créé avec succès, token retourné"),
+            @ApiResponse(responseCode = "201", description = "Compte créé avec succès, tokens retournés"),
             @ApiResponse(responseCode = "400", description = "Données d'entrée invalides"),
             @ApiResponse(responseCode = "409", description = "Un compte existe déjà avec cet email")
     })
@@ -38,14 +39,26 @@ public class AuthController {
     }
 
     @PostMapping("/login")
-    @Operation(summary = "Connexion d'un utilisateur", description = "Valide les identifiants et retourne un token JWT Bearer")
+    @Operation(summary = "Connexion d'un utilisateur", description = "Valide les identifiants et retourne un access token et un refresh token JWT Bearer")
     @ApiResponses(value = {
-            @ApiResponse(responseCode = "200", description = "Authentification réussie, token retourné"),
+            @ApiResponse(responseCode = "200", description = "Authentification réussie, tokens retournés"),
             @ApiResponse(responseCode = "400", description = "Données d'entrée invalides"),
             @ApiResponse(responseCode = "401", description = "Identifiants invalides ou compte désactivé")
     })
     public ResponseEntity<AuthResponse> login(@Valid @RequestBody LoginRequest request) {
         AuthResponse response = authService.login(request);
+        return ResponseEntity.ok(response);
+    }
+
+    @PostMapping("/refresh-token")
+    @Operation(summary = "Rafraîchir le token d'accès", description = "Génère un nouvel access token et un nouveau refresh token à partir d'un refresh token valide")
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "200", description = "Tokens renouvelés avec succès"),
+            @ApiResponse(responseCode = "400", description = "Refresh token manquant"),
+            @ApiResponse(responseCode = "401", description = "Refresh token invalide ou expiré")
+    })
+    public ResponseEntity<AuthResponse> refreshToken(@Valid @RequestBody RefreshTokenRequest request) {
+        AuthResponse response = authService.refreshToken(request);
         return ResponseEntity.ok(response);
     }
 }

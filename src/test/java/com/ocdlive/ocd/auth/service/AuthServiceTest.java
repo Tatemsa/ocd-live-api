@@ -2,8 +2,10 @@ package com.ocdlive.ocd.auth.service;
 
 import com.ocdlive.ocd.auth.dto.AuthResponse;
 import com.ocdlive.ocd.auth.dto.LoginRequest;
+import com.ocdlive.ocd.auth.dto.RefreshTokenRequest;
 import com.ocdlive.ocd.auth.dto.RegisterRequest;
 import com.ocdlive.ocd.exception.ResourceAlreadyExistsException;
+import com.ocdlive.ocd.exception.UnauthorizedException;
 import com.ocdlive.ocd.security.jwt.JwtService;
 import com.ocdlive.ocd.user.model.Role;
 import com.ocdlive.ocd.user.model.User;
@@ -55,10 +57,12 @@ class AuthServiceTest {
     private AuthService authService;
 
     private static final Long JWT_EXPIRATION = 86400000L;
+    private static final Long REFRESH_EXPIRATION = 604800000L;
 
     @BeforeEach
     void setUp() {
         ReflectionTestUtils.setField(authService, "jwtExpiration", JWT_EXPIRATION);
+        ReflectionTestUtils.setField(authService, "refreshExpiration", REFRESH_EXPIRATION);
     }
 
     @Nested
@@ -66,7 +70,7 @@ class AuthServiceTest {
     class RegisterTests {
 
         @Test
-        @DisplayName("Devrait inscrire un nouvel utilisateur et retourner un AuthResponse avec JWT")
+        @DisplayName("Devrait inscrire un nouvel utilisateur et retourner un AuthResponse avec accessToken et refreshToken")
         @SuppressWarnings("unchecked")
         void shouldRegisterNewUserAndReturnAuthResponse() {
             RegisterRequest request = RegisterRequest.builder()
@@ -83,12 +87,15 @@ class AuthServiceTest {
                 u.setId(10L);
                 return u;
             });
-            given(jwtService.generateToken(any(Map.class), any(User.class))).willReturn("registered.jwt.token");
+            given(jwtService.generateToken(any(Map.class), any(User.class))).willReturn("registered.access.token");
+            given(jwtService.generateRefreshToken(any(User.class))).willReturn("registered.refresh.token");
 
             AuthResponse response = authService.register(request);
 
             assertThat(response).isNotNull();
-            assertThat(response.getAccessToken()).isEqualTo("registered.jwt.token");
+            assertThat(response.getAccessToken()).isEqualTo("registered.access.token");
+            assertThat(response.getRefreshToken()).isEqualTo("registered.refresh.token");
+            assertThat(response.getRefreshExpiresIn()).isEqualTo(REFRESH_EXPIRATION);
             assertThat(response.getUserId()).isEqualTo(10L);
             assertThat(response.getEmail()).isEqualTo("kofi@entreprise.tg");
             assertThat(response.getRole()).isEqualTo(Role.ROLE_USER);
@@ -118,7 +125,7 @@ class AuthServiceTest {
     class LoginTests {
 
         @Test
-        @DisplayName("Devrait authentifier l'utilisateur actif et retourner un AuthResponse avec token JWT")
+        @DisplayName("Devrait authentifier l'utilisateur actif et retourner un AuthResponse avec accessToken et refreshToken")
         @SuppressWarnings("unchecked")
         void shouldAuthenticateActiveUserAndReturnAuthResponse() {
             LoginRequest request = LoginRequest.builder()
@@ -138,13 +145,16 @@ class AuthServiceTest {
 
             given(userRepository.findByEmail("admin@ocdlive.com")).willReturn(Optional.of(user));
             given(jwtService.generateToken(any(Map.class), eq(user))).willReturn("mocked.jwt.token");
+            given(jwtService.generateRefreshToken(user)).willReturn("mocked.refresh.token");
 
             AuthResponse response = authService.login(request);
 
             assertThat(response).isNotNull();
             assertThat(response.getAccessToken()).isEqualTo("mocked.jwt.token");
+            assertThat(response.getRefreshToken()).isEqualTo("mocked.refresh.token");
             assertThat(response.getTokenType()).isEqualTo("Bearer");
             assertThat(response.getExpiresIn()).isEqualTo(JWT_EXPIRATION);
+            assertThat(response.getRefreshExpiresIn()).isEqualTo(REFRESH_EXPIRATION);
             assertThat(response.getUserId()).isEqualTo(1L);
             assertThat(response.getEmail()).isEqualTo("admin@ocdlive.com");
             assertThat(response.getFirstName()).isEqualTo("Super");
@@ -221,6 +231,55 @@ class AuthServiceTest {
                     .hasMessageContaining("désactivé");
 
             verify(jwtService, never()).generateToken(any(), any());
+        }
+    }
+
+    @Nested
+    @DisplayName("refreshToken()")
+    class RefreshTokenTests {
+
+        @Test
+        @DisplayName("Devrait générer un nouvel accessToken et refreshToken quand le refreshToken est valide")
+        @SuppressWarnings("unchecked")
+        void shouldRefreshTokensWhenRefreshTokenIsValid() {
+            RefreshTokenRequest request = RefreshTokenRequest.builder()
+                    .refreshToken("valid.refresh.token")
+                    .build();
+
+            User user = User.builder()
+                    .id(1L)
+                    .email("admin@ocdlive.com")
+                    .firstName("Super")
+                    .lastName("Admin")
+                    .role(Role.ROLE_ADMIN)
+                    .enabled(true)
+                    .build();
+
+            given(jwtService.extractUsername("valid.refresh.token")).willReturn("admin@ocdlive.com");
+            given(userRepository.findByEmail("admin@ocdlive.com")).willReturn(Optional.of(user));
+            given(jwtService.isTokenValid("valid.refresh.token", user)).willReturn(true);
+            given(jwtService.generateToken(any(Map.class), eq(user))).willReturn("new.access.token");
+            given(jwtService.generateRefreshToken(user)).willReturn("new.refresh.token");
+
+            AuthResponse response = authService.refreshToken(request);
+
+            assertThat(response).isNotNull();
+            assertThat(response.getAccessToken()).isEqualTo("new.access.token");
+            assertThat(response.getRefreshToken()).isEqualTo("new.refresh.token");
+            assertThat(response.getEmail()).isEqualTo("admin@ocdlive.com");
+        }
+
+        @Test
+        @DisplayName("Devrait lever UnauthorizedException si le refreshToken est invalide ou expiré")
+        void shouldThrowUnauthorizedExceptionWhenRefreshTokenIsInvalid() {
+            RefreshTokenRequest request = RefreshTokenRequest.builder()
+                    .refreshToken("invalid.refresh.token")
+                    .build();
+
+            given(jwtService.extractUsername("invalid.refresh.token")).willThrow(new RuntimeException("Invalid token"));
+
+            assertThatThrownBy(() -> authService.refreshToken(request))
+                    .isInstanceOf(UnauthorizedException.class);
         }
     }
 }

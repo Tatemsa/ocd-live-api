@@ -11,18 +11,24 @@ import lombok.NoArgsConstructor;
 @Builder
 @AllArgsConstructor
 @NoArgsConstructor
-@Schema(description = "Réponse retournée après authentification réussie")
+@Schema(description = "Réponse retournée après authentification ou rafraîchissement de session")
 public class AuthResponse {
 
     @Schema(description = "Token d'accès JWT")
     private String accessToken;
 
+    @Schema(description = "Token de rafraîchissement JWT (Refresh Token)")
+    private String refreshToken;
+
     @Builder.Default
     @Schema(description = "Type de token", example = "Bearer")
     private String tokenType = "Bearer";
 
-    @Schema(description = "Durée de validité en millisecondes", example = "86400000")
+    @Schema(description = "Durée de validité de l'access token en millisecondes", example = "86400000")
     private Long expiresIn;
+
+    @Schema(description = "Durée de validité du refresh token en millisecondes", example = "604800000")
+    private Long refreshExpiresIn;
 
     @Schema(description = "Identifiant unique de l'utilisateur", example = "1")
     private Long userId;
@@ -39,4 +45,3 @@ public class AuthResponse {
     @Schema(description = "Rôle de l'utilisateur", example = "ROLE_ADMIN")
     private Role role;
 }
-
