@@ -69,6 +69,5 @@ jobs:
           key: ${{ secrets.key }}
           port: ${{ secrets.PORT }}
           script: |
-            ln -sf /opt/app/ocd/ocd.jar /etc/init.d/ocd
-            /etc/init.d/ocd stop
-            /etc/init.d/ocd start
+            systemctl stop ocd
+            systemctl start ocd --no-pager
