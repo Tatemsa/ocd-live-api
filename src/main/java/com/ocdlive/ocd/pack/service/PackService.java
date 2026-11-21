@@ -9,6 +9,7 @@ import com.ocdlive.ocd.pack.dto.PackRequest;
 import com.ocdlive.ocd.pack.dto.PackResponse;
 import com.ocdlive.ocd.pack.mapper.PackMapper;
 import com.ocdlive.ocd.pack.model.Pack;
+import com.ocdlive.ocd.pack.model.PackBillingType;
 import com.ocdlive.ocd.pack.repository.PackRepository;
 import com.ocdlive.ocd.user.model.Role;
 import com.ocdlive.ocd.user.model.User;
@@ -39,6 +40,12 @@ public class PackService {
         }
 
         Pack pack = packMapper.toEntity(request);
+        if (pack.getBillingType() == null) {
+            pack.setBillingType(request.getBillingType() != null ? request.getBillingType() : PackBillingType.ONE_TIME);
+        }
+        if (pack.getBillingType() == PackBillingType.MONTHLY_SUBSCRIPTION && pack.getMonthlyLiveQuota() == null) {
+            pack.setMonthlyLiveQuota(request.getMonthlyLiveQuota() != null ? request.getMonthlyLiveQuota() : 4);
+        }
         pack.setCreatedBy(currentUser);
         pack.setEquipments(resolveEquipments(request.getEquipmentIds()));
 
@@ -101,6 +108,16 @@ public class PackService {
     @Transactional(readOnly = true)
     public List<PackResponse> getActivePacks() {
         return packMapper.toResponseList(packRepository.findByActiveTrue());
+    }
+
+    @Transactional(readOnly = true)
+    public List<PackResponse> getSubscriptionPacks() {
+        return packMapper.toResponseList(packRepository.findByBillingTypeAndActiveTrue(PackBillingType.MONTHLY_SUBSCRIPTION));
+    }
+
+    @Transactional(readOnly = true)
+    public List<PackResponse> getPacksByCountry(String country) {
+        return packMapper.toResponseList(packRepository.findByTargetCountryIgnoreCaseAndActiveTrue(country));
     }
 
     @Transactional(readOnly = true)

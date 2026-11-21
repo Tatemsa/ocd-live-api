@@ -2,6 +2,7 @@ package com.ocdlive.ocd.auth.controller;
 
 import com.ocdlive.ocd.auth.dto.AuthResponse;
 import com.ocdlive.ocd.auth.dto.LoginRequest;
+import com.ocdlive.ocd.auth.dto.RegisterRequest;
 import com.ocdlive.ocd.auth.service.AuthService;
 import com.ocdlive.ocd.user.model.Role;
 import org.junit.jupiter.api.DisplayName;
@@ -28,9 +29,39 @@ class AuthControllerTest {
     private AuthController authController;
 
     @Test
+    @DisplayName("POST /auth/register - Devrait créer un compte et retourner 201 Created")
+    void shouldReturnCreatedWithAuthResponseWhenRegisterSucceeds() {
+        RegisterRequest request = RegisterRequest.builder()
+                .firstName("Kofi")
+                .lastName("Mensah")
+                .email("kofi@entreprise.tg")
+                .password("secret123")
+                .build();
+
+        AuthResponse expectedResponse = AuthResponse.builder()
+                .accessToken("jwt-token")
+                .tokenType("Bearer")
+                .expiresIn(86400000L)
+                .userId(2L)
+                .email("kofi@entreprise.tg")
+                .firstName("Kofi")
+                .lastName("Mensah")
+                .role(Role.ROLE_USER)
+                .build();
+
+        given(authService.register(request)).willReturn(expectedResponse);
+
+        ResponseEntity<AuthResponse> response = authController.register(request);
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.CREATED);
+        assertThat(response.getBody()).isNotNull();
+        assertThat(response.getBody().getEmail()).isEqualTo("kofi@entreprise.tg");
+        verify(authService).register(request);
+    }
+
+    @Test
     @DisplayName("POST /auth/login - Devrait retourner 200 OK avec le token JWT")
     void shouldReturnOkWithAuthResponseWhenLoginSucceeds() {
-        // Arrange
         LoginRequest request = LoginRequest.builder()
                 .email("admin@ocdlive.com")
                 .password("admin123")
@@ -49,10 +80,8 @@ class AuthControllerTest {
 
         given(authService.login(request)).willReturn(expectedResponse);
 
-        // Act
         ResponseEntity<AuthResponse> response = authController.login(request);
 
-        // Assert
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
         assertThat(response.getBody()).isNotNull();
         assertThat(response.getBody().getAccessToken()).isEqualTo("jwt-token");
@@ -61,4 +90,3 @@ class AuthControllerTest {
         verify(authService).login(request);
     }
 }
-
