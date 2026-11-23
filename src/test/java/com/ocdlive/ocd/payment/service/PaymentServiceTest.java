@@ -50,6 +50,9 @@ class PaymentServiceTest {
     @Mock
     private PaymentMapper paymentMapper;
 
+    @Mock
+    private com.ocdlive.ocd.notification.service.EmailNotificationService emailNotificationService;
+
     @InjectMocks
     private PaymentService paymentService;
 
@@ -161,6 +164,7 @@ class PaymentServiceTest {
         assertThat(sampleReservation.getStatus()).isEqualTo(ReservationStatus.CONFIRMED);
         assertThat(pendingPayment.getPaidAt()).isNotNull();
         verify(reservationRepository).save(sampleReservation);
+        verify(emailNotificationService).sendReservationPaymentConfirmationEmails(pendingPayment, sampleReservation);
     }
 
     @Test
@@ -197,6 +201,7 @@ class PaymentServiceTest {
         assertThat(sampleSubscription.getStartDate()).isNotNull();
         assertThat(sampleSubscription.getEndDate()).isEqualTo(sampleSubscription.getStartDate().plusMonths(1));
         verify(subscriptionRepository).save(sampleSubscription);
+        verify(emailNotificationService).sendSubscriptionPaymentConfirmationEmails(pendingPayment, sampleSubscription);
     }
 
     @Test

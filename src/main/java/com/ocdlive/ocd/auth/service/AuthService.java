@@ -2,8 +2,10 @@ package com.ocdlive.ocd.auth.service;
 
 import com.ocdlive.ocd.auth.dto.AuthResponse;
 import com.ocdlive.ocd.auth.dto.LoginRequest;
+import com.ocdlive.ocd.auth.dto.RefreshTokenRequest;
 import com.ocdlive.ocd.auth.dto.RegisterRequest;
 import com.ocdlive.ocd.exception.ResourceAlreadyExistsException;
+import com.ocdlive.ocd.exception.UnauthorizedException;
 import com.ocdlive.ocd.security.jwt.JwtService;
 import com.ocdlive.ocd.user.model.Role;
 import com.ocdlive.ocd.user.model.User;
@@ -32,6 +34,9 @@ public class AuthService {
 
     @Value("${application.security.jwt.expiration}")
     private Long jwtExpiration;
+
+    @Value("${application.security.jwt.refresh-token.expiration:604800000}")
+    private Long refreshExpiration;
 
     @Transactional
     public AuthResponse register(RegisterRequest request) {
@@ -71,17 +76,56 @@ public class AuthService {
         return buildAuthResponse(user);
     }
 
+    @Transactional(readOnly = true)
+    public AuthResponse refreshToken(RefreshTokenRequest request) {
+        final String refreshToken = request.getRefreshToken();
+        final String userEmail;
+
+        try {
+            userEmail = jwtService.extractUsername(refreshToken);
+        } catch (Exception e) {
+            throw new UnauthorizedException("Refresh token invalide ou expiré.");
+        }
+
+        if (userEmail == null) {
+            throw new UnauthorizedException("Refresh token invalide.");
+        }
+
+        User user = userRepository.findByEmail(userEmail)
+                .orElseThrow(() -> new UnauthorizedException("Utilisateur introuvable pour ce refresh token."));
+
+        if (!user.isEnabled()) {
+            throw new UnauthorizedException("Ce compte utilisateur est désactivé.");
+        }
+
+        boolean valid;
+        try {
+            valid = jwtService.isTokenValid(refreshToken, user);
+        } catch (Exception e) {
+            throw new UnauthorizedException("Refresh token expiré ou invalide.");
+        }
+
+        if (!valid) {
+            throw new UnauthorizedException("Refresh token invalide.");
+        }
+
+        return buildAuthResponse(user);
+    }
+
     private AuthResponse buildAuthResponse(User user) {
         Map<String, Object> extraClaims = new HashMap<>();
         extraClaims.put("userId", user.getId());
         extraClaims.put("role", user.getRole().name());
 
-        String jwtToken = jwtService.generateToken(extraClaims, user);
+        String accessToken = jwtService.generateToken(extraClaims, user);
+        String refreshToken = jwtService.generateRefreshToken(user);
 
         return AuthResponse.builder()
-                .accessToken(jwtToken)
+                .accessToken(accessToken)
+                .refreshToken(refreshToken)
                 .tokenType("Bearer")
                 .expiresIn(jwtExpiration)
+                .refreshExpiresIn(refreshExpiration)
                 .userId(user.getId())
                 .email(user.getEmail())
                 .firstName(user.getFirstName())

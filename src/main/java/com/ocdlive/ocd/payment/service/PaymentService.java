@@ -3,6 +3,7 @@ package com.ocdlive.ocd.payment.service;
 import com.ocdlive.ocd.exception.BadRequestException;
 import com.ocdlive.ocd.exception.BusinessRuleException;
 import com.ocdlive.ocd.exception.ResourceNotFoundException;
+import com.ocdlive.ocd.notification.service.EmailNotificationService;
 import com.ocdlive.ocd.payment.dto.PaymentInitiateRequest;
 import com.ocdlive.ocd.payment.dto.PaymentResponse;
 import com.ocdlive.ocd.payment.dto.PaymentWebhookRequest;
@@ -34,6 +35,7 @@ public class PaymentService {
     private final ReservationRepository reservationRepository;
     private final SubscriptionRepository subscriptionRepository;
     private final PaymentMapper paymentMapper;
+    private final EmailNotificationService emailNotificationService;
 
     @Transactional
     public PaymentResponse initiatePayment(PaymentInitiateRequest request) {
@@ -102,14 +104,17 @@ public class PaymentService {
         if (webhookRequest.getStatus() == PaymentStatus.SUCCESS) {
             payment.setPaidAt(LocalDateTime.now());
 
-            // Confirmation automatique de la réservation associée
+            // Confirmation automatique de la réservation associée + envoi des emails au client et à l'admin
             if (payment.getReservation() != null) {
                 Reservation reservation = payment.getReservation();
                 reservation.setStatus(ReservationStatus.CONFIRMED);
                 reservationRepository.save(reservation);
+                if (emailNotificationService != null) {
+                    emailNotificationService.sendReservationPaymentConfirmationEmails(payment, reservation);
+                }
             }
 
-            // Activation automatique de l'abonnement mensuel associé
+            // Activation automatique de l'abonnement mensuel associé + envoi des emails au client et à l'admin
             if (payment.getSubscription() != null) {
                 Subscription subscription = payment.getSubscription();
                 LocalDate today = LocalDate.now();
@@ -121,6 +126,9 @@ public class PaymentService {
                 subscription.setEndDate(today.plusMonths(1));
                 subscription.setRemainingLives(quota);
                 subscriptionRepository.save(subscription);
+                if (emailNotificationService != null) {
+                    emailNotificationService.sendSubscriptionPaymentConfirmationEmails(payment, subscription);
+                }
             }
         }
 

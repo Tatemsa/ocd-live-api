@@ -21,12 +21,14 @@ class JwtServiceTest {
 
     private static final String SECRET_KEY = "404E635266556A586E3272357538782F413F4428472B4B6250645367566B5970";
     private static final long EXPIRATION = 86400000L;
+    private static final long REFRESH_EXPIRATION = 604800000L;
 
     @BeforeEach
     void setUp() {
         jwtService = new JwtService();
         ReflectionTestUtils.setField(jwtService, "secretKey", SECRET_KEY);
         ReflectionTestUtils.setField(jwtService, "jwtExpiration", EXPIRATION);
+        ReflectionTestUtils.setField(jwtService, "refreshExpiration", REFRESH_EXPIRATION);
 
         sampleUser = User.builder()
                 .id(1L)
@@ -46,6 +48,19 @@ class JwtServiceTest {
         assertThat(token).isNotBlank();
         assertThat(jwtService.extractUsername(token)).isEqualTo("admin@ocdlive.com");
         assertThat(jwtService.isTokenValid(token, sampleUser)).isTrue();
+    }
+
+    @Test
+    @DisplayName("generateRefreshToken() - Devrait générer un refresh token valide avec le claim tokenType=REFRESH")
+    void shouldGenerateRefreshTokenWithRefreshClaim() {
+        String refreshToken = jwtService.generateRefreshToken(sampleUser);
+
+        assertThat(refreshToken).isNotBlank();
+        assertThat(jwtService.extractUsername(refreshToken)).isEqualTo("admin@ocdlive.com");
+        assertThat(jwtService.isTokenValid(refreshToken, sampleUser)).isTrue();
+
+        String tokenType = jwtService.extractClaim(refreshToken, claims -> claims.get("tokenType", String.class));
+        assertThat(tokenType).isEqualTo("REFRESH");
     }
 
     @Test
@@ -83,4 +98,3 @@ class JwtServiceTest {
                 .isInstanceOf(ExpiredJwtException.class);
     }
 }
-
